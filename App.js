@@ -1,117 +1,203 @@
-/**
- * Sample React Native App
- * https://github.com/facebook/react-native
- *
- * @format
- * @flow strict-local
- */
+import * as React from 'react';
 
-import React from 'react';
-import type {Node} from 'react';
+import { View } from 'react-native';
 import {
-  SafeAreaView,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
+  MD3LightTheme as DefaultTheme,
+  Provider as PaperProvider,
+  Appbar,
+  Divider,
+  List,
+  Switch,
   Text,
-  useColorScheme,
-  View,
-} from 'react-native';
-
+} from 'react-native-paper';
 import {
-  Colors,
-  DebugInstructions,
-  Header,
-  LearnMoreLinks,
-  ReloadInstructions,
-} from 'react-native/Libraries/NewAppScreen';
+  subscription,
+  start,
+  stop,
+  setDevice,
+  clearDevices,
+} from 'react-native-sdk';
 
-/* $FlowFixMe[missing-local-annot] The type annotation(s) required by Flow's
- * LTI update could not be added via codemod */
-const Section = ({children, title}): Node => {
-  const isDarkMode = useColorScheme() === 'dark';
-  return (
-    <View style={styles.sectionContainer}>
-      <Text
-        style={[
-          styles.sectionTitle,
-          {
-            color: isDarkMode ? Colors.white : Colors.black,
-          },
-        ]}>
-        {title}
-      </Text>
-      <Text
-        style={[
-          styles.sectionDescription,
-          {
-            color: isDarkMode ? Colors.light : Colors.dark,
-          },
-        ]}>
-        {children}
-      </Text>
-    </View>
-  );
+const theme = {
+  ...DefaultTheme,
+  colors: {
+    ...DefaultTheme.colors,
+  },
 };
 
-const App: () => Node = () => {
-  const isDarkMode = useColorScheme() === 'dark';
+export default function App() {
+  // UI flags
+  const [deviceScannerStarted, setDeviceScannerStarted] = React.useState(false);
+  const [selectedDeviceId, setSelectedDeviceId] =
+    React.useState(null);
 
-  const backgroundStyle = {
-    backgroundColor: isDarkMode ? Colors.darker : Colors.lighter,
-  };
+  // Events received from native sdk
+  const [deviceScannerStateEvent, setDeviceScannerStateEvent] =
+    React.useState(null);
+  const [deviceConnectionStateEvent, setDeviceConnectionStateEvent] =
+    React.useState(null);
+  const [deviceDataEvent, setDeviceDataEvent] =
+    React.useState(null);
+
+  // Subscribe to events
+  React.useEffect(() => {
+    // Listen to device scanner state updates
+    subscription.on('device_scanner.state', setDeviceScannerStateEvent);
+
+    // Listen to device connection state updates
+    subscription.on('device.connection_state', setDeviceConnectionStateEvent);
+
+    // Listen to device data stream
+    subscription.on('device.data', setDeviceDataEvent);
+
+    return () => {
+      // Remove all listeners
+      subscription.removeListener(
+        'device_scanner.state',
+        setDeviceScannerStateEvent
+      );
+      subscription.removeListener(
+        'device.connection_state',
+        setDeviceConnectionStateEvent
+      );
+      subscription.removeListener('device.data', setDeviceDataEvent);
+    };
+  }, []);
 
   return (
-    <SafeAreaView style={backgroundStyle}>
-      <StatusBar
-        barStyle={isDarkMode ? 'light-content' : 'dark-content'}
-        backgroundColor={backgroundStyle.backgroundColor}
-      />
-      <ScrollView
-        contentInsetAdjustmentBehavior="automatic"
-        style={backgroundStyle}>
-        <Header />
+    <PaperProvider theme={theme}>
+      {/* Header */}
+      <Appbar.Header>
+        <Appbar.Content title="littlefires" />
+      </Appbar.Header>
+      <Divider />
+
+      {/* Main content */}
+      <View
+        style={{
+          height: '100%',
+          padding: 8,
+          backgroundColor: theme.colors.background,
+        }}
+      >
+        <List.Subheader>Settings</List.Subheader>
+
+        {/* Start or stop device scanning */}
+        <List.Item
+          title="Tap to start or stop scanning"
+          description={`Current state: ${
+            deviceScannerStateEvent?.state || 'stopped'
+          }`}
+          right={() => (
+            <Switch
+              value={deviceScannerStarted}
+              onChange={() => {
+                const newValue = !deviceScannerStarted;
+                setDeviceScannerStarted(newValue);
+                if (newValue) {
+                  start();
+                } else {
+                  stop();
+                }
+              }}
+            />
+          )}
+          onPress={() => {
+            const newValue = !deviceScannerStarted;
+            setDeviceScannerStarted(newValue);
+            if (newValue) {
+              start();
+            } else {
+              stop();
+            }
+          }}
+        />
+        <Divider />
+
+        {/* Toggle to receive device data from one device at a time */}
+        <List.Subheader>Connect to Device</List.Subheader>
+        {[
+          {
+            deviceId: 'lepu_medical',
+            name: 'Lepu Medical',
+          },
+          {
+            deviceId: 'wellue',
+            name: 'Wellue',
+          },
+          {
+            deviceId: 'yuwell',
+            name: 'Yuwell',
+          },
+        ].map((device) => (
+          <React.Fragment key={device.deviceId}>
+            <List.Item
+              title={device.name}
+              description={
+                selectedDeviceId === device.deviceId
+                  ? deviceScannerStarted
+                    ? `Current state: ${
+                        deviceConnectionStateEvent &&
+                        deviceConnectionStateEvent.deviceId === device.deviceId
+                          ? deviceConnectionStateEvent.state
+                          : 'disconnected'
+                      }`
+                    : 'Please start scanning'
+                  : undefined
+              }
+              right={() => (
+                <Switch
+                  value={selectedDeviceId === device.deviceId}
+                  onChange={() => {
+                    // If already selected, then un-select it
+                    if (selectedDeviceId === device.deviceId) {
+                      setSelectedDeviceId(null);
+
+                      // Clear existing devices
+                      clearDevices();
+                    } else {
+                      setSelectedDeviceId(device.deviceId);
+
+                      // Invoke native sdk to select current device
+                      setDevice(device.deviceId);
+                    }
+                  }}
+                />
+              )}
+              onPress={() => {
+                // If already selected, then un-select it
+                if (selectedDeviceId === device.deviceId) {
+                  setSelectedDeviceId(null);
+
+                  // Clear existing devices
+                  clearDevices();
+                } else {
+                  setSelectedDeviceId(device.deviceId);
+
+                  // Invoke native sdk to select current device
+                  setDevice(device.deviceId);
+                }
+              }}
+            />
+          </React.Fragment>
+        ))}
+        <Divider />
+
+        {/* Show the last received data in JSON format */}
+        <List.Subheader>Last Received Data</List.Subheader>
         <View
           style={{
-            backgroundColor: isDarkMode ? Colors.black : Colors.white,
-          }}>
-          <Section title="Step One">
-            Edit <Text style={styles.highlight}>App.js</Text> to change this
-            screen and then come back to see your edits.
-          </Section>
-          <Section title="See Your Changes">
-            <ReloadInstructions />
-          </Section>
-          <Section title="Debug">
-            <DebugInstructions />
-          </Section>
-          <Section title="Learn More">
-            Read the docs to discover what to do next:
-          </Section>
-          <LearnMoreLinks />
+            marginLeft: 16,
+            marginRight: 16,
+          }}
+        >
+          <Text variant="bodyLarge">
+            {deviceDataEvent
+              ? JSON.stringify(deviceDataEvent)
+              : 'No data available'}
+          </Text>
         </View>
-      </ScrollView>
-    </SafeAreaView>
+      </View>
+    </PaperProvider>
   );
-};
-
-const styles = StyleSheet.create({
-  sectionContainer: {
-    marginTop: 32,
-    paddingHorizontal: 24,
-  },
-  sectionTitle: {
-    fontSize: 24,
-    fontWeight: '600',
-  },
-  sectionDescription: {
-    marginTop: 8,
-    fontSize: 18,
-    fontWeight: '400',
-  },
-  highlight: {
-    fontWeight: '700',
-  },
-});
-
-export default App;
+}
