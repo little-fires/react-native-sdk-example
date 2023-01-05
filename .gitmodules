@@ -1,0 +1,3 @@
+[submodule "plugins/littlefires"]
+	path = plugins/littlefires
+	url = https://github.com/little-fires/react-native-sdk.git
