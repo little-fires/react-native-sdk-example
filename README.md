@@ -197,6 +197,11 @@ module.exports = {
 };
 ```
 
+### 7. Update Android minimum SDK version in [android/build.gradle](android/build.gradle) file
+```
+minSdkVersion = 26
+```
+
 As you can see from the configurations above, there are paths to [plugins/littlefires](plugins/littlefires) folder such as:
 ```js
 require('./plugins/littlefires/package.json');
