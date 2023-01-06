@@ -58,12 +58,12 @@ yarn install
 cd plugins/littlefires
 yarn install
 
+# Go back to root directory
+cd ../..
+
 # Install CocoaPods
 cd ios
 pod install
-
-# Go back to root directory
-cd ../..
 ```
 
 Finally, open [ios/ReactNativeSdkExample.xcworkspace](ios/ReactNativeSdkExample.xcworkspace) and deploy on your iOS device.
